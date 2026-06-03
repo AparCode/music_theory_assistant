@@ -1,82 +1,99 @@
-# 🎵 Music Theory Voice Assistant
-# @author: Aparnaa Senthilnathan
+# 🎵 Music Theory Agent — Web Version
 
-A conversational AI voice agent that answers music theory questions and helps you craft chord progressions and melodies — powered by [AssemblyAI's Voice Agent API](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/overview).
+A browser-based conversational voice agent for music theory, powered by [AssemblyAI's Voice Agent API](https://www.assemblyai.com/docs/voice-agents/voice-agent-api/overview).
 
-## Features
+**Live demo:** `https://YOUR_GITHUB_USERNAME.github.io/music-theory-agent`
 
-- **Full spoken conversation** — talk naturally, get spoken responses
-- **Music theory expertise** — scales, intervals, harmony, counterpoint, modes, and more
-- **Chord progression suggestions** — any genre (jazz, pop, blues, classical, metal, etc.)
-- **Melody ideas** — construction, development, and phrasing
-- **Barge-in support** — interrupt the agent mid-sentence, just like a real conversation
+---
 
-## Setup
+## Architecture
 
-### 1. Clone the repo
-
-```bash
-git clone https://github.com/your-username/music-theory-agent.git
-cd music-theory-agent
+```
+Browser (GitHub Pages)
+  └─ fetches temp token → FastAPI backend (Render)
+  └─ WebSocket → AssemblyAI Voice Agent API
 ```
 
-### 2. Install dependencies
+Your API key lives only on Render — never in the browser.
+
+---
+
+## Deployment
+
+### Step 1 — Deploy the backend to Render
+
+1. Push this repo to GitHub.
+2. Go to [render.com](https://render.com) → **New → Web Service**.
+3. Connect your GitHub repo and select the `backend/` folder as the root directory (or set the working directory).
+4. Fill in:
+   - **Runtime:** Python 3.11
+   - **Build command:** `pip install -r requirements.txt`
+   - **Start command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. Under **Environment Variables**, add:
+   - `ASSEMBLYAI_API_KEY` = your AssemblyAI API key
+6. Click **Deploy**. Copy the URL Render gives you (e.g. `https://music-agent-xyz.onrender.com`).
+
+### Step 2 — Update CORS and frontend config
+
+In `backend/main.py`, replace `YOUR_GITHUB_USERNAME` in `ALLOWED_ORIGINS` with your actual GitHub username.
+
+In `frontend/index.html`, replace `YOUR_RENDER_APP` in `BACKEND_URL` with your actual Render URL:
+```js
+const BACKEND_URL = 'https://music-agent-xyz.onrender.com';
+```
+
+Commit and push both changes.
+
+### Step 3 — Enable GitHub Pages
+
+1. Go to your repo on GitHub → **Settings → Pages**.
+2. Under **Source**, select **Deploy from a branch**.
+3. Choose `main` branch and set the folder to `/frontend`.
+4. Click **Save**.
+
+GitHub will publish your site at:
+`https://YOUR_GITHUB_USERNAME.github.io/REPO_NAME`
+
+---
+
+## Local development
 
 ```bash
+# Backend
+cd backend
 pip install -r requirements.txt
+ASSEMBLYAI_API_KEY=your_key uvicorn main:app --reload --port 8000
+
+# Frontend — open in browser via Live Server or:
+cd frontend
+python -m http.server 5500
+# then open http://localhost:5500
 ```
 
-> On Linux you may need `sudo apt install portaudio19-dev` before installing `sounddevice`.
-> On macOS: `brew install portaudio`.
+Make sure `BACKEND_URL` in `index.html` points to `http://localhost:8000` during local dev.
 
-### 3. Add your API key
+---
 
-```bash
-cp .env.example .env
-```
-
-Open `.env` and replace `your_api_key_here` with your AssemblyAI API key.  
-Get one free at [assemblyai.com/dashboard/api-keys](https://www.assemblyai.com/dashboard/api-keys).
-
-**Never commit your `.env` file.** It's already in `.gitignore`.
-
-### 4. Run
-
-```bash
-python main.py
-```
-
-The agent will greet you and you can start speaking.
-
-## Project Structure
+## Project structure
 
 ```
 music-theory-agent/
-├── main.py          # Entry point
-├── agent.py         # WebSocket connection and event handling
-├── audio.py         # Microphone capture and speaker playback
-├── requirements.txt
-├── .env.example     # API key template (safe to commit)
-├── .env             # Your actual key (never commit this)
-└── .gitignore
+├── backend/
+│   ├── main.py           # FastAPI server — mints tokens
+│   └── requirements.txt
+└── frontend/
+    └── index.html        # Single-file browser app
 ```
 
-## Example Conversations
+---
 
-- *"What's the difference between a major and minor scale?"*
-- *"Give me a jazz chord progression in Eb."*
-- *"How do I write a melody over a ii-V-I?"*
-- *"What modes work well over a dominant chord?"*
-- *"Suggest a chord progression for a melancholic indie song."*
+## Notes
 
-## Troubleshooting
+- **Render free tier** spins down after 15 min of inactivity — the first request after sleep takes ~30s. Upgrade to a paid plan if you need always-on.
+- **Microphone access** requires HTTPS — both GitHub Pages and Render serve HTTPS by default, so you're covered.
+- The browser connects directly to AssemblyAI after getting the token, so audio never passes through your backend.
 
-| Problem | Fix |
-|---|---|
-| No audio input | Check your default mic in system settings |
-| No audio output | Check your default speaker/headphones |
-| `portaudio` error | Install PortAudio (see Setup step 2) |
-| `401` / auth error | Double-check your API key in `.env` |
+---
 
 ## License
 
