@@ -22,7 +22,7 @@ app = FastAPI()
 # Allow requests from GitHub Pages and localhost for local dev.
 # Replace YOUR_GITHUB_USERNAME with your actual GitHub username.
 ALLOWED_ORIGINS = [
-    "https://YOUR_GITHUB_USERNAME.github.io",
+    "https://aparcode.github.io",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "http://localhost:5500",   # VS Code Live Server
