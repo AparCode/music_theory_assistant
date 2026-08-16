@@ -10,8 +10,17 @@ import json
 import os
 
 import websockets
+import websockets.exceptions
 
 from audio import MicCapture, Speaker
+
+# websockets>=12 renamed InvalidStatusCode → InvalidStatus.
+# Support both so the code works across versions.
+_WS_AUTH_EXC = getattr(
+    websockets.exceptions,
+    "InvalidStatus",           # v12+
+    getattr(websockets.exceptions, "InvalidStatusCode", Exception),  # v10/v11
+)
 
 AGENT_URL = "wss://agents.assemblyai.com/v1/ws"
 
@@ -60,17 +69,18 @@ SESSION_CONFIG = {
 
 async def run_agent(api_key: str):
     headers = {"Authorization": f"Bearer {api_key}"}
-    speaker = Speaker()
     loop = asyncio.get_running_loop()
     mic_queue: asyncio.Queue = asyncio.Queue()
     ready_event = asyncio.Event()
     stop_event = asyncio.Event()
+    speaker = None  # opened only after WS connects
 
     print("[agent] Connecting to AssemblyAI Voice Agent API...")
 
     try:
         async with websockets.connect(AGENT_URL, additional_headers=headers) as ws:
             print("[agent] Connected. Sending session configuration...")
+            speaker = Speaker()  # open audio stream only on successful connect
 
             # Send session config immediately (don't wait for session.ready)
             await ws.send(json.dumps({
@@ -147,11 +157,19 @@ async def run_agent(api_key: str):
                 mic.stop()
                 mic_task.cancel()
                 recv_task.cancel()
+                # Bug 4 fix: always send Terminate so the session closes server-side
+                # (prevents billing the 3-hour inactivity cap on abandoned sessions)
+                try:
+                    await ws.send(json.dumps({"type": "Terminate"}))
+                except Exception:
+                    pass  # WS may already be closed; that's fine
 
-    except websockets.InvalidStatusCode as e:
-        print(f"[error] WebSocket handshake failed (HTTP {e.status_code}). Check your API key.")
+    except _WS_AUTH_EXC as e:
+        # Bug 1 fix: catch the correct exception across websockets v10/v11/v12+
+        print(f"[error] WebSocket handshake failed — check your API key. Detail: {e}")
     except Exception as e:
         print(f"[error] Unexpected error: {e}")
     finally:
-        speaker.close()
+        if speaker:
+            speaker.close()
         print("[agent] Session ended.")

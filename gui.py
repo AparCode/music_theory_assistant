@@ -16,6 +16,9 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import scrolledtext
 
+import websockets
+import websockets.exceptions
+
 from dotenv import load_dotenv
 
 from audio import MicCapture, Speaker
@@ -405,8 +408,6 @@ class MusicAgentGUI:
             self.loop.close()
 
     async def _agent_loop(self):
-        import websockets
-
         headers = {"Authorization": f"Bearer {self.api_key}"}
         self.speaker = Speaker()
         mic_queue: asyncio.Queue = asyncio.Queue()
@@ -483,10 +484,17 @@ class MusicAgentGUI:
                 for t in pending:
                     t.cancel()
 
+                # Send Terminate so the server closes the session cleanly
+                try:
+                    await ws.send(json.dumps({"type": "Terminate"}))
+                except Exception:
+                    pass
+
         except Exception as e:
             self.root.after(0, lambda err=str(e): self._add_message("agent", f"[connection error] {err}"))
         finally:
-            self.mic.stop()
+            if self.mic:
+                self.mic.stop()
             if self.speaker:
                 self.speaker.close()
                 self.speaker = None
